@@ -5,7 +5,7 @@ Features:
   - Sidebar: repo URL input, index button, stats display
   - Main area: chat interface with streaming responses
   - Expandable panels: agent thinking trace and code citations
-  - Dark glassmorphism theme with smooth animations
+  - Premium dark glassmorphism theme with smooth animations
 """
 
 from __future__ import annotations
@@ -33,6 +33,13 @@ from src.ui.components import (
     inject_custom_css,
     render_hero_header,
     render_thinking_trace,
+    render_empty_chat_state,
+    render_not_indexed_state,
+    render_assistant_header,
+    render_sidebar_section,
+    render_sidebar_stats,
+    render_sidebar_footer,
+    inject_auth_animations,
 )
 
 # Configure logging
@@ -72,107 +79,179 @@ def main():
         st.session_state.thread_id = str(uuid.uuid4())
     if "thinking_traces" not in st.session_state:
         st.session_state.thinking_traces = {}
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if "username" not in st.session_state:
+        st.session_state.username = ""
 
-    # ── Sidebar ──────────────────────────────────────────────────────
+    # ── Authentication Flow ──────────────────────────────────────────
+    if not st.session_state.authenticated:
+        inject_auth_animations()
+        
+        # Top-left branding
+        st.markdown(
+            """
+            <div style='position: fixed; top: 1.5rem; left: 2rem; z-index: 100; display: flex; align-items: center;'>
+                <div style='display: inline-flex; align-items: center; justify-content: center; width: 36px; height: 36px; border-radius: 8px; background: #ef4444; color: white; font-weight: bold; margin-right: 12px; font-size: 1.1rem;'>z</div>
+                <h1 style='margin: 0; font-size: 1.5rem; font-weight: 700; color: white;'>Codebase Agent</h1>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        
+        _, col, _ = st.columns([1, 1.5, 1])
+        with col:
+            tab1, tab2 = st.tabs(["Login", "Sign Up"])
+            with tab1:
+                with st.form("login_form"):
+                    st.markdown("### Log In")
+                    user = st.text_input("Username / Email", placeholder="Enter your email")
+                    password = st.text_input("Password", type="password", placeholder="Enter your password")
+                    if st.form_submit_button("Log In", use_container_width=True):
+                        if user and password:
+                            st.session_state.authenticated = True
+                            st.session_state.username = user
+                            st.rerun()
+                        else:
+                            st.error("Please enter both username and password.")
+            with tab2:
+                with st.form("signup_form"):
+                    st.markdown("### Sign Up")
+                    new_user = st.text_input("Email", placeholder="Enter your email")
+                    new_password = st.text_input("Password", type="password", placeholder="Choose a password")
+                    confirm_password = st.text_input("Confirm Password", type="password", placeholder="Confirm your password")
+                    if st.form_submit_button("Sign Up", use_container_width=True):
+                        if new_user and new_password and (new_password == confirm_password):
+                            st.session_state.authenticated = True
+                            st.session_state.username = new_user
+                            st.success("Account created successfully!")
+                            st.rerun()
+                        else:
+                            st.error("Please fill all fields correctly and ensure passwords match.")
+        
+        return  # Stop rendering the rest of the app until logged in
+
+    # ── Sidebar Dashboard ────────────────────────────────────────────
     with st.sidebar:
-        st.markdown("## 🗂️ Repository")
+        # User Profile
+        st.markdown(
+            f'<div style="display:flex; align-items:center; gap: 12px; margin-bottom: 24px;">'
+            f'<div style="width:36px; height:36px; border-radius:50%; background:#ef4444; color:white; display:flex; align-items:center; justify-content:center; font-weight:bold;">{st.session_state.username[0].upper() if st.session_state.username else "U"}</div>'
+            f'<div style="font-weight:500;">{st.session_state.username}</div>'
+            f'</div>',
+            unsafe_allow_html=True
+        )
+        if st.button("Log Out", use_container_width=True):
+            st.session_state.authenticated = False
+            st.rerun()
+            
+        st.divider()
+
+        # Repository Section
+        render_sidebar_section("📂", "Repository")
+
+        def trigger_indexing():
+            st.session_state.do_index = True
 
         repo_url = st.text_input(
             "Repository URL",
             value=st.session_state.repo_url,
             placeholder="https://github.com/user/repo",
-            help="Enter a public Git repository URL to index",
+            help="Enter a public Git repository URL to index (Press Enter)",
+            label_visibility="collapsed",
+            key="repo_url_input",
+            on_change=trigger_indexing,
         )
 
-        col1, col2 = st.columns(2)
+        col1, col2 = st.columns([3, 2])
         with col1:
             index_clicked = st.button(
-                "🔍 Index Repo",
+                "⚡ Index Repo",
                 use_container_width=True,
-                disabled=not repo_url,
+                disabled=not st.session_state.get("repo_url_input"),
             )
         with col2:
-            force_full = st.checkbox("Force full re-index", value=False)
+            force_full = st.checkbox("Full re-index", value=False)
 
         # Indexing progress area
         progress_area = st.empty()
 
-        if index_clicked and repo_url:
-            st.session_state.repo_url = repo_url
-            _handle_indexing(repo_url, force_full, progress_area)
+        if index_clicked or st.session_state.get("do_index"):
+            st.session_state.do_index = False
+            url_to_index = st.session_state.get("repo_url_input", "").strip()
+            if url_to_index:
+                st.session_state.repo_url = url_to_index
+                _handle_indexing(url_to_index, force_full, progress_area)
 
-        st.divider()
-
-        # ── Indexed repo stats ───────────────────────────────────────
+        # Indexed repo stats
         if st.session_state.repo_indexed:
-            st.markdown("### ✅ Repository Indexed")
-            stats: IndexingStats = st.session_state.indexing_stats
+            stats = st.session_state.indexing_stats
             if stats:
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.metric("Files", stats.files_processed)
-                with col_b:
-                    st.metric("Chunks", stats.chunks_indexed)
-
-                st.caption(f"📁 `{stats.repo_path}`")
-                st.caption(f"🔗 Commit: `{stats.commit_hash[:8]}`")
-
-                if stats.is_delta:
-                    st.info("🔄 Delta index — only changed files were re-indexed")
-        else:
-            st.markdown(
-                "<div style='text-align:center; padding: 2rem; color: #64748b;'>"
-                "<p>👆 Paste a repo URL above and click <b>Index Repo</b> to get started</p>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
+                st.markdown("")  # spacing
+                render_sidebar_stats(
+                    files=stats.files_processed,
+                    chunks=stats.chunks_indexed,
+                    repo_path=stats.repo_path,
+                    commit=stats.commit_hash,
+                    is_delta=stats.is_delta,
+                )
 
         st.divider()
 
-        # ── Conversation controls ────────────────────────────────────
-        st.markdown("### 💬 Conversation")
+        # Conversation Controls
+        render_sidebar_section("💬", "Conversation")
+
         if st.button("🗑️ Clear Chat", use_container_width=True):
             st.session_state.messages = []
             st.session_state.thread_id = str(uuid.uuid4())
             st.session_state.thinking_traces = {}
             st.rerun()
 
+        # Fill remaining space, then footer
+        st.markdown('<div style="flex:1;"></div>', unsafe_allow_html=True)
         st.divider()
-        st.caption("Built with LangGraph + ChromaDB + Tree-sitter")
+        render_sidebar_footer()
 
-    # ── Main chat area ───────────────────────────────────────────────
-    render_hero_header()
+    # ── Main UI ──────────────────────────────────────────────────────
+    if not st.session_state.repo_indexed:
+        # Initial State: Just the Hero header when no repo is indexed
+        render_hero_header()
+        st.markdown(
+            '<div style="text-align:center; color:var(--text-secondary); margin-top:2rem;">'
+            '👈 Please enter a GitHub repository URL in the sidebar to get started.'
+            '</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        # Chat State: Minimalist UI
+        
+        # Display chat history
+        for i, msg in enumerate(st.session_state.messages):
+            role = msg["role"]
+            content = msg["content"]
 
-    # Display chat history
-    for i, msg in enumerate(st.session_state.messages):
-        role = msg["role"]
-        content = msg["content"]
+            with st.chat_message(role):
+                if role == "assistant":
+                    render_assistant_header()
+                    
+                st.markdown(content)
 
-        with st.chat_message(role):
-            st.markdown(content)
+                # Show thinking trace for assistant messages
+                msg_id = msg.get("id", "")
+                if role == "assistant" and msg_id in st.session_state.thinking_traces:
+                    render_thinking_trace(st.session_state.thinking_traces[msg_id])
 
-            # Show thinking trace for assistant messages
-            msg_id = msg.get("id", "")
-            if role == "assistant" and msg_id in st.session_state.thinking_traces:
-                render_thinking_trace(st.session_state.thinking_traces[msg_id])
+        # Chat input
+        if prompt := st.chat_input("Message Codebase Agent..."):
+            # Add user message
+            st.session_state.messages.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
 
-    # Chat input
-    if prompt := st.chat_input(
-        "Ask a question about the codebase…",
-        disabled=not st.session_state.repo_indexed,
-    ):
-        if not st.session_state.repo_indexed:
-            st.warning("Please index a repository first!")
-            return
-
-        # Add user message
-        st.session_state.messages.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        # Generate response
-        with st.chat_message("assistant"):
-            _handle_chat(prompt)
+            # Generate response
+            with st.chat_message("assistant"):
+                render_assistant_header()
+                _handle_chat(prompt)
 
 
 def _handle_indexing(repo_url: str, force_full: bool, progress_area) -> None:
@@ -256,27 +335,28 @@ def _handle_chat(prompt: str) -> None:
         full_response = ""
         thinking_trace = []
 
-        with st.status("🧠 Thinking…", expanded=True) as status:
-            # Invoke the agent (non-streaming for simplicity)
-            result = agent.invoke(
-                {"messages": input_messages},
-                config=config,
-            )
+        # Show the custom 4-color pill animation
+        with thinking_placeholder.container():
+            from src.ui.components import render_loading_animation
+            render_loading_animation()
 
-            # Extract the final AI message
-            for msg in reversed(result["messages"]):
-                if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
-                    full_response = msg.content
-                    break
+        # Invoke the agent (non-streaming for simplicity)
+        result = agent.invoke(
+            {"messages": input_messages},
+            config=config,
+        )
 
-            # Extract thinking trace
-            thinking_trace = result.get("thinking_trace", [])
+        # Clear the loading animation
+        thinking_placeholder.empty()
 
-            if thinking_trace:
-                for step in thinking_trace:
-                    status.markdown(step)
+        # Extract the final AI message
+        for msg in reversed(result["messages"]):
+            if isinstance(msg, AIMessage) and msg.content and not msg.tool_calls:
+                full_response = msg.content
+                break
 
-            status.update(label="✅ Done!", state="complete", expanded=False)
+        # Extract thinking trace
+        thinking_trace = result.get("thinking_trace", [])
 
         # Display the response
         if full_response:

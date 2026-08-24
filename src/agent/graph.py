@@ -16,7 +16,10 @@ If not, it reformulates and searches again (up to MAX_REFLECTIONS times).
 from __future__ import annotations
 
 import json
+import json
 import logging
+import re
+import uuid
 from typing import Literal
 
 from langchain_openai import ChatOpenAI
@@ -31,13 +34,14 @@ from langgraph.prebuilt import ToolNode
 from langgraph.checkpoint.memory import MemorySaver
 
 from src.config import (
-    OPENROUTER_API_KEY, 
-    OPENROUTER_BASE_URL, 
+    NVIDIA_API_KEY, 
+    NVIDIA_BASE_URL, 
     LLM_MODEL, 
     MAX_REFLECTIONS, 
     CONFIDENCE_THRESHOLD,
     USE_LOCAL_OLLAMA,
     OLLAMA_MODEL,
+    NVIDIA_NEMOTRON_KWARGS,
 )
 from src.agent.state import AgentState
 from src.agent.tools import (
@@ -61,14 +65,14 @@ def _get_llm():
     if USE_LOCAL_OLLAMA:
         from langchain_ollama import ChatOllama
         llm = ChatOllama(model=OLLAMA_MODEL, temperature=0.0)
-        return llm.bind_tools(TOOLS)
-
-    llm = ChatOpenAI(
-        model=LLM_MODEL,
-        temperature=0.0,
-        openai_api_key=OPENROUTER_API_KEY,
-        openai_api_base=OPENROUTER_BASE_URL,
-    )
+    else:
+        llm = ChatOpenAI(
+            model=LLM_MODEL,
+            temperature=1.0,
+            openai_api_key=NVIDIA_API_KEY,
+            openai_api_base=NVIDIA_BASE_URL,
+            model_kwargs=NVIDIA_NEMOTRON_KWARGS,
+        )
     return llm.bind_tools(TOOLS)
 
 
@@ -93,9 +97,6 @@ def reason_node(state: AgentState) -> dict:
 
     # Manually parse tool calls if Ollama outputs them as text due to verbosity
     if not response.tool_calls and isinstance(response.content, str) and '{"name":' in response.content:
-        import re
-        import json
-        import uuid
         match = re.search(r'(\{.*?"name":.*?"parameters":.*?\})', response.content, re.DOTALL)
         if match:
             try:
@@ -172,8 +173,9 @@ def reflect_node(state: AgentState) -> dict:
             model=LLM_MODEL,
             temperature=0.0,
             max_tokens=100,
-            openai_api_key=OPENROUTER_API_KEY,
-            openai_api_base=OPENROUTER_BASE_URL,
+            openai_api_key=NVIDIA_API_KEY,
+            openai_api_base=NVIDIA_BASE_URL,
+            model_kwargs=NVIDIA_NEMOTRON_KWARGS,
         )
         eval_response = llm.invoke(messages + [HumanMessage(content=eval_prompt)])
         response_text = eval_response.content.strip()

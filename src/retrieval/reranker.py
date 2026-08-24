@@ -16,7 +16,12 @@ import re
 from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
-from src.config import OPENROUTER_API_KEY, OPENROUTER_BASE_URL, LLM_MODEL_MINI
+from src.config import (
+    NVIDIA_API_KEY, 
+    NVIDIA_BASE_URL, 
+    LLM_MODEL_MINI, 
+    NVIDIA_NEMOTRON_KWARGS
+)
 from src.retrieval.hybrid_search import SearchResult
 
 logger = logging.getLogger(__name__)
@@ -55,10 +60,11 @@ def rerank(
 
     llm = ChatOpenAI(
         model=LLM_MODEL_MINI,
-        temperature=0.0,
+        temperature=1.0,
         max_tokens=5,
-        openai_api_key=OPENROUTER_API_KEY,
-        openai_api_base=OPENROUTER_BASE_URL,
+        openai_api_key=NVIDIA_API_KEY,
+        openai_api_base=NVIDIA_BASE_URL,
+        model_kwargs=NVIDIA_NEMOTRON_KWARGS,
     )
 
     scored: list[tuple[float, SearchResult]] = []

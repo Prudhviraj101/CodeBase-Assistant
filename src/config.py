@@ -24,19 +24,26 @@ CHROMA_DB_DIR = Path(os.getenv("CHROMA_DB_PATH", DATA_DIR / "chroma_db"))
 REPOS_DIR.mkdir(parents=True, exist_ok=True)
 CHROMA_DB_DIR.mkdir(parents=True, exist_ok=True)
 
-# ── Google Gemini (embeddings) ───────────────────────────────────────────
+# ── Google Gemini / NVIDIA (embeddings) ───────────────────────────────────────────
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY", "")
-EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "models/gemini-embedding-001")
-EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "3072"))
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nvidia/nv-embedqa-e5-v5")
+EMBEDDING_DIMENSIONS = int(os.getenv("EMBEDDING_DIMENSIONS", "1024"))
 
-# ── OpenRouter (LLM) ────────────────────────────────────────────────────
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY", "")
-OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-LLM_MODEL = os.getenv("LLM_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
-LLM_MODEL_MINI = os.getenv("LLM_MODEL_MINI", "meta-llama/llama-3.3-70b-instruct:free")
+# ── NVIDIA NIM (LLM) ────────────────────────────────────────────────────
+NVIDIA_API_KEY = os.getenv("NVIDIA_API_KEY", "")
+NVIDIA_BASE_URL = "https://integrate.api.nvidia.com/v1"
+LLM_MODEL = os.getenv("LLM_MODEL", "nvidia/nemotron-3.5-lightning-30b-a3b")
+LLM_MODEL_MINI = os.getenv("LLM_MODEL_MINI", "nvidia/nemotron-3.5-lightning-30b-a3b")
+
+NVIDIA_NEMOTRON_KWARGS = {
+    "extra_body": {
+        "chat_template_kwargs": {"enable_thinking": True},
+        "reasoning_budget": 16384
+    }
+}
 
 # ── Local Ollama (LLM) ──────────────────────────────────────────────────
-USE_LOCAL_OLLAMA = os.getenv("USE_LOCAL_OLLAMA", "True").lower() in ("true", "1", "yes")
+USE_LOCAL_OLLAMA = os.getenv("USE_LOCAL_OLLAMA", "False").lower() in ("true", "1", "yes")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "llama3.1:8b")
 OLLAMA_EMBEDDING_MODEL = os.getenv("OLLAMA_EMBEDDING_MODEL", "nomic-embed-text")
 

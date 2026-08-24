@@ -65,17 +65,23 @@ def semantic_search(
     collection = get_or_create_collection(_current_repo_id)
 
     # Build optional metadata filter
-    where_filter = {}
+    filters = []
     if language:
-        where_filter["language"] = language
+        filters.append({"language": language})
     if chunk_type:
-        where_filter["chunk_type"] = chunk_type
+        filters.append({"chunk_type": chunk_type})
+        
+    final_where = None
+    if len(filters) == 1:
+        final_where = filters[0]
+    elif len(filters) > 1:
+        final_where = {"$and": filters}
 
     results = hybrid_search(
         collection,
         query,
         top_k=FINAL_TOP_K,
-        where_filter=where_filter if where_filter else None,
+        where_filter=final_where,
     )
 
     # Apply file path filter (substring match, not supported natively)

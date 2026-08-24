@@ -13,11 +13,12 @@ from langchain_openai import ChatOpenAI
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from src.config import (
-    OPENROUTER_API_KEY, 
-    OPENROUTER_BASE_URL, 
+    NVIDIA_API_KEY, 
+    NVIDIA_BASE_URL, 
     LLM_MODEL_MINI,
     USE_LOCAL_OLLAMA,
     OLLAMA_MODEL,
+    NVIDIA_NEMOTRON_KWARGS,
 )
 
 logger = logging.getLogger(__name__)
@@ -66,10 +67,11 @@ def rewrite_query(question: str) -> dict[str, str]:
         else:
             llm = ChatOpenAI(
                 model=LLM_MODEL_MINI,
-                temperature=0.0,
+                temperature=1.0,
                 max_tokens=200,
-                openai_api_key=OPENROUTER_API_KEY,
-                openai_api_base=OPENROUTER_BASE_URL,
+                openai_api_key=NVIDIA_API_KEY,
+                openai_api_base=NVIDIA_BASE_URL,
+                model_kwargs=NVIDIA_NEMOTRON_KWARGS,
             )
             response = llm.invoke([
                 SystemMessage(content=_REWRITE_SYSTEM_PROMPT),
