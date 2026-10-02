@@ -361,7 +361,7 @@ Contributions are welcome! Here are some ideas:
 
 ## 📄 License
 
-This project is open-source and available under the [MIT License](LICENSE).
+No license file is currently included. Add a license before distributing the project beyond personal or internal use.
 
 ---
 
