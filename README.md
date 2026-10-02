@@ -343,11 +343,9 @@ This makes the agent genuinely autonomous — it doesn't just do one search and 
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
-> _Coming soon — screenshots of the login screen, chat interface, and thinking trace._
-
----
+Add screenshots or a short demo GIF here to make the repository easier to evaluate at a glance.
 
 ## 🤝 Contributing
 
